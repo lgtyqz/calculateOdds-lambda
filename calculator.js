@@ -1,6 +1,7 @@
 const { PETS, PERKS, TOYS } = require('./data');
 const { PACK_MAP } = require('./config');
 const { createBattleEngine } = require('sap-battle-engine');
+const ABILITY_PET_MAP = require('./ability-pet-map');
 
 // Reuse the engine between simulations (and warm Lambda invocations) so its
 // registries and services only need to be initialized once.
@@ -159,6 +160,42 @@ function buildWinPercentReportHeadless(battleJsonList, buildModel) {
   return results;
 }
 
+function getAbominationSwallowedPets(petJson) {
+  const swallowedPets = [];
+  const swallowedByPetId = new Map();
+
+  for (const ability of petJson?.Abil || []) {
+    const swallowedPetId = ABILITY_PET_MAP[String(ability?.Enu)];
+    if (swallowedPetId === undefined || swallowedPetId === 373) {
+      continue;
+    }
+
+    const petInfo = PETS[String(swallowedPetId)];
+    if (!petInfo) {
+      continue;
+    }
+
+    const rawLevel = Number(ability?.Lvl);
+    const level = Number.isFinite(rawLevel)
+      ? Math.min(3, Math.max(1, Math.round(rawLevel)))
+      : 1;
+    const existing = swallowedByPetId.get(swallowedPetId);
+    if (existing) {
+      existing.level = Math.max(existing.level, level);
+      continue;
+    }
+
+    const swallowedPet = { name: petInfo.Name, level };
+    swallowedByPetId.set(swallowedPetId, swallowedPet);
+    swallowedPets.push(swallowedPet);
+    if (swallowedPets.length === 3) {
+      break;
+    }
+  }
+
+  return swallowedPets;
+}
+
 
 
 function parseReplayForCalculator(battleJson, buildModel) {
@@ -168,6 +205,15 @@ function parseReplayForCalculator(battleJson, buildModel) {
   const getTimesHurt = (petJson) => {
     const value = petJson?.Pow?.SabertoothTigerAbility;
     return Number.isFinite(value) ? value : null;
+  };
+
+  const getBattlesFought = (petJson) => {
+    const abilityKey = {
+      "375": "SlimeAbility",
+      "781": "EagleOwlAbility"
+    }[String(petJson?.Enu)];
+    const value = abilityKey ? petJson?.Pow?.[abilityKey] : null;
+    return Number.isFinite(value) ? value : 0;
   };
 
   const getTriggersConsumed = (petJson) => {
@@ -220,6 +266,9 @@ function parseReplayForCalculator(battleJson, buildModel) {
         belugaSwallowedPet = swallowedPetName;
       }
     }
+    const abominationSwallowedPets = petId === "373"
+      ? getAbominationSwallowedPets(petJson)
+      : [];
     const timesHurt = getTimesHurt(petJson);
     const triggersConsumed = getTriggersConsumed(petJson);
     const parsedPet = {
@@ -233,8 +282,16 @@ function parseReplayForCalculator(battleJson, buildModel) {
       abominationSwallowedPet1: null,
       abominationSwallowedPet2: null,
       abominationSwallowedPet3: null,
-      battlesFought: 0
+      abominationSwallowedPet1Level: null,
+      abominationSwallowedPet2Level: null,
+      abominationSwallowedPet3Level: null,
+      battlesFought: getBattlesFought(petJson)
     };
+    abominationSwallowedPets.forEach((swallowedPet, index) => {
+      const slot = index + 1;
+      parsedPet[`abominationSwallowedPet${slot}`] = swallowedPet.name;
+      parsedPet[`abominationSwallowedPet${slot}Level`] = swallowedPet.level;
+    });
     if (timesHurt !== null) {
       parsedPet.timesHurt = timesHurt;
     }
