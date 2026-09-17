@@ -160,17 +160,18 @@ function buildWinPercentReportHeadless(battleJsonList, buildModel) {
   return results;
 }
 
-function getAbominationSwallowedPets(petJson) {
-  const swallowedPets = [];
-  const swallowedByPetId = new Map();
+function getCopiedPets(petJson, copyingPetId, limit) {
+  const copiedPets = [];
+  const copiedByPetId = new Map();
 
   for (const ability of petJson?.Abil || []) {
-    const swallowedPetId = ABILITY_PET_MAP[String(ability?.Enu)];
-    if (swallowedPetId === undefined || swallowedPetId === 373) {
+    const copiedPetId = ABILITY_PET_MAP[String(ability?.Enu)];
+    const isTemporarySelfCopy = copiedPetId === copyingPetId && Number(ability?.Dur) > 0;
+    if (copiedPetId === undefined || (copiedPetId === copyingPetId && !isTemporarySelfCopy)) {
       continue;
     }
 
-    const petInfo = PETS[String(swallowedPetId)];
+    const petInfo = PETS[String(copiedPetId)];
     if (!petInfo) {
       continue;
     }
@@ -179,21 +180,21 @@ function getAbominationSwallowedPets(petJson) {
     const level = Number.isFinite(rawLevel)
       ? Math.min(3, Math.max(1, Math.round(rawLevel)))
       : 1;
-    const existing = swallowedByPetId.get(swallowedPetId);
+    const existing = copiedByPetId.get(copiedPetId);
     if (existing) {
       existing.level = Math.max(existing.level, level);
       continue;
     }
 
-    const swallowedPet = { name: petInfo.Name, level };
-    swallowedByPetId.set(swallowedPetId, swallowedPet);
-    swallowedPets.push(swallowedPet);
-    if (swallowedPets.length === 3) {
+    const copiedPet = { name: petInfo.Name, level };
+    copiedByPetId.set(copiedPetId, copiedPet);
+    copiedPets.push(copiedPet);
+    if (copiedPets.length === limit) {
       break;
     }
   }
 
-  return swallowedPets;
+  return copiedPets;
 }
 
 
@@ -267,8 +268,11 @@ function parseReplayForCalculator(battleJson, buildModel) {
       }
     }
     const abominationSwallowedPets = petId === "373"
-      ? getAbominationSwallowedPets(petJson)
+      ? getCopiedPets(petJson, 373, 3)
       : [];
+    const parrotCopyPet = petId === "53"
+      ? getCopiedPets(petJson, 53, 1)[0]?.name ?? null
+      : null;
     const timesHurt = getTimesHurt(petJson);
     const triggersConsumed = getTriggersConsumed(petJson);
     const parsedPet = {
@@ -279,6 +283,7 @@ function parseReplayForCalculator(battleJson, buildModel) {
       equipment: petJson.Perk ? { name: PERKS[petJson.Perk]?.Name || "Unknown Perk" } : null,
       mana: petJson.Mana || 0,
       belugaSwallowedPet: belugaSwallowedPet,
+      parrotCopyPet: parrotCopyPet,
       abominationSwallowedPet1: null,
       abominationSwallowedPet2: null,
       abominationSwallowedPet3: null,
@@ -422,12 +427,26 @@ function stripDefaultValues(state) {
     if (pet.mana !== 0) newPet.mana = pet.mana;
     if (pet.equipment) newPet.equipment = pet.equipment;
     if (pet.belugaSwallowedPet !== null) newPet.belugaSwallowedPet = pet.belugaSwallowedPet;
+    if (pet.parrotCopyPet !== null) newPet.parrotCopyPet = pet.parrotCopyPet;
     if (pet.timesHurt) newPet.timesHurt = pet.timesHurt;
+    if (Number.isFinite(pet.battlesFought) && pet.battlesFought !== 0) {
+      newPet.battlesFought = pet.battlesFought;
+    }
     if (Number.isFinite(pet.triggersConsumed) && pet.triggersConsumed !== 0) {
       newPet.triggersConsumed = pet.triggersConsumed;
     }
+    for (let slot = 1; slot <= 3; slot++) {
+      const swallowedPetKey = `abominationSwallowedPet${slot}`;
+      const swallowedPetLevelKey = `${swallowedPetKey}Level`;
+      if (pet[swallowedPetKey]) {
+        newPet[swallowedPetKey] = pet[swallowedPetKey];
+      }
+      if (Number.isFinite(pet[swallowedPetLevelKey])) {
+        newPet[swallowedPetLevelKey] = pet[swallowedPetLevelKey];
+      }
+    }
 
-    // All other pet properties like `belugaSwallowedPet`, `battlesFought`, etc.,
+    // All other pet properties like `foodsEaten`, etc.,
     // are omitted because their default is null or 0.
 
     return newPet;
@@ -459,7 +478,10 @@ const KEY_MAP = {
   oldStork: "os", tokenPets: "tp", komodoShuffle: "ks", mana: "m",
   showAdvanced: "sa", ailmentEquipment: "ae", playerTransformationAmount: "pTA", opponentTransformationAmount: "oTA",
   // Pet Object Keys
-  name: "n", attack: "a", health: "h", exp: "e", equipment: "eq", belugaSwallowedPet: "bSP", timesHurt: "tH"
+  name: "n", attack: "a", health: "h", exp: "e", equipment: "eq", belugaSwallowedPet: "bSP", parrotCopyPet: "pCP", timesHurt: "tH",
+  battlesFought: "bF",
+  abominationSwallowedPet1: "aSP1", abominationSwallowedPet2: "aSP2", abominationSwallowedPet3: "aSP3",
+  abominationSwallowedPet1Level: "aSP1L", abominationSwallowedPet2Level: "aSP2L", abominationSwallowedPet3Level: "aSP3L"
 };
 
 function truncateKeys(data) {
