@@ -2,7 +2,11 @@ import { buildWinPercentReportHeadless } from './calculator.js';
 
 export const handler = async (event) => {
   let reqBody = JSON.parse(event.body);
-  let winPercentReport = buildWinPercentReportHeadless(reqBody.battleJsonList, reqBody.buildModel);
+  let winPercentReport = buildWinPercentReportHeadless(
+    reqBody.battleJsonList,
+    reqBody.buildModel,
+    reqBody.calculatorStateList,
+  );
   // TODO implement
   const response = {
     statusCode: 200,

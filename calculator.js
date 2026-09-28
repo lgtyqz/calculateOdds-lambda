@@ -119,11 +119,12 @@ function findCustomPackFromDeck(customPacks, deck) {
   return null;
 }
 
-function buildWinPercentReportHeadless(battleJsonList, buildModel) {
+function buildWinPercentReportHeadless(battleJsonList, buildModel, calculatorStateList) {
   const results = [];
   for (let i = 0; i < battleJsonList.length; i++) {
     try {
-      const calculatorState = parseReplayForCalculator(battleJsonList[i], buildModel);
+      const calculatorState = calculatorStateList?.[i] ??
+        parseReplayForCalculator(battleJsonList[i], buildModel);
 
       const config = {
         ...calculatorState,
