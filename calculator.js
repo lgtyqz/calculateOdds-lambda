@@ -276,6 +276,15 @@ function parseReplayForCalculator(battleJson, buildModel) {
       : null;
     const timesHurt = getTimesHurt(petJson);
     const triggersConsumed = getTriggersConsumed(petJson);
+    const fringeheadMemory = petId === "763"
+      ? petJson?.MiMs?.Lsts?.SarcasticFringeheadAbility?.[0]
+      : null;
+    const sarcasticFringeheadSwallowedPet = fringeheadMemory
+      ? PETS[String(fringeheadMemory.Enu)]?.Name ?? null
+      : null;
+    const geladaCharge = petId === "696"
+      ? petJson?.Abil?.find((ability) => String(ability?.Enu) === "742")?.Char
+      : null;
     const plainCopy = petJson.AbDi === true &&
       Array.isArray(petJson.Abil) &&
       petJson.Abil.length === 0;
@@ -288,6 +297,8 @@ function parseReplayForCalculator(battleJson, buildModel) {
       mana: petJson.Mana || 0,
       plainCopy: plainCopy,
       belugaSwallowedPet: belugaSwallowedPet,
+      sarcasticFringeheadSwallowedPet: sarcasticFringeheadSwallowedPet,
+      foodsEaten: Number.isFinite(geladaCharge) ? Math.max(0, Math.floor(geladaCharge)) : 0,
       parrotCopyPet: parrotCopyPet,
       abominationSwallowedPet1: null,
       abominationSwallowedPet2: null,
@@ -437,6 +448,8 @@ function stripDefaultValues(state) {
     if (pet.plainCopy) newPet.plainCopy = true;
     if (pet.equipment) newPet.equipment = pet.equipment;
     if (pet.belugaSwallowedPet !== null) newPet.belugaSwallowedPet = pet.belugaSwallowedPet;
+    if (pet.sarcasticFringeheadSwallowedPet) newPet.sarcasticFringeheadSwallowedPet = pet.sarcasticFringeheadSwallowedPet;
+    if (pet.foodsEaten) newPet.foodsEaten = pet.foodsEaten;
     if (pet.parrotCopyPet !== null) newPet.parrotCopyPet = pet.parrotCopyPet;
     if (pet.timesHurt) newPet.timesHurt = pet.timesHurt;
     if (Number.isFinite(pet.battlesFought) && pet.battlesFought !== 0) {
@@ -488,7 +501,7 @@ const KEY_MAP = {
   oldStork: "os", tokenPets: "tp", komodoShuffle: "ks", mana: "m", plainCopies: "pCs",
   showAdvanced: "sa", ailmentEquipment: "ae", playerTransformationAmount: "pTA", opponentTransformationAmount: "oTA",
   // Pet Object Keys
-  name: "n", attack: "a", health: "h", exp: "e", plainCopy: "pC", equipment: "eq", belugaSwallowedPet: "bSP", parrotCopyPet: "pCP", timesHurt: "tH",
+  name: "n", attack: "a", health: "h", exp: "e", plainCopy: "pC", equipment: "eq", belugaSwallowedPet: "bSP", sarcasticFringeheadSwallowedPet: "sFSP", foodsEaten: "fE", parrotCopyPet: "pCP", timesHurt: "tH",
   battlesFought: "bF",
   abominationSwallowedPet1: "aSP1", abominationSwallowedPet2: "aSP2", abominationSwallowedPet3: "aSP3",
   abominationSwallowedPet1Level: "aSP1L", abominationSwallowedPet2Level: "aSP2L", abominationSwallowedPet3Level: "aSP3L"
